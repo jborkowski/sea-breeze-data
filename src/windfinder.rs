@@ -1,13 +1,14 @@
 use chrono::{DateTime, FixedOffset};
+use chrono_tz::{Europe::Madrid, Tz};
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use serde::Serialize;
 use serde_json::Value;
-use std::{borrow::Cow, error::Error, fmt};
+use std::{borrow::Cow, error::Error};
 
 #[derive(Serialize, Debug)]
 pub struct Data {
-    datetime: DateTime<FixedOffset>,
+    pub datetime: DateTime<Tz>,
     wind_direction: String,
     wind_status: String,
     wind_speed: f64,
@@ -17,55 +18,9 @@ pub struct Data {
     spot_name: String,
 }
 
-impl fmt::Display for Data {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            f,
-            "| {:<20} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} |",
-            self.datetime.to_rfc3339(),
-            self.wave_direction.clone().unwrap_or_default(),
-            self.wind_direction,
-            self.wind_status,
-            self.wave_period.unwrap_or_default(),
-            self.wave_height.unwrap_or_default(),
-            self.wind_speed,
-            self.spot_name
-        )
-    }
-}
-
 #[derive(Serialize, Debug)]
 pub struct WindData {
-    data: Vec<Data>,
-}
-
-impl fmt::Display for WindData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(_data) = self.data.first() {
-            writeln!(
-                f,
-                "| {:<25} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} | {:<20} |",
-                "Datetime",
-                "Wave Direction",
-                "Wind Direction",
-                "Wind Status",
-                "Wave Period",
-                "Wave Height",
-                "Wind Speed",
-                "Spot Name"
-            )?;
-            writeln!(
-                f,
-                "|---------------------------|----------------------|----------------------|----------------------|----------------------|----------------------|----------------------|----------------------|"
-            )?;
-        }
-
-        for data in &self.data {
-            write!(f, "{}", data)?;
-        }
-
-        Ok(())
-    }
+    pub data: Vec<Data>,
 }
 
 pub struct WindFinder {
@@ -109,7 +64,6 @@ impl WindFinder {
             .iter()
             .map(|element| {
                 let angle = element["wd"].as_f64().unwrap_or(0.0);
-                println!("{}", angle);
                 self.angle_to_direction(angle)
             })
             .collect()
@@ -164,8 +118,10 @@ impl WindFinder {
             .collect()
     }
 
-    fn date_datestr_to_datetime(&self, date_string: &str) -> DateTime<FixedOffset> {
-        DateTime::parse_from_rfc3339(date_string).unwrap()
+    fn date_datestr_to_datetime(&self, date_string: &str) -> DateTime<Tz> {
+        DateTime::parse_from_rfc3339(date_string)
+            .expect("Failed to parse RFC 3339 string")
+            .with_timezone(&Madrid)
     }
 
     fn parse_spot_name(&self, document: &Html) -> String {
@@ -213,7 +169,7 @@ impl WindFinder {
             }
         }
 
-        let datetimes: Vec<DateTime<FixedOffset>> = fetched_list
+        let datetimes: Vec<DateTime<Tz>> = fetched_list
             .iter()
             .map(|element| {
                 let date_str = element["dtl"].as_str().unwrap();
