@@ -89,8 +89,8 @@ impl WindFinder {
         fetched_list
             .iter()
             .map(|element| {
-                let angle = element["wad"].as_i64().unwrap_or(0);
-                self.angle_to_direction(angle as f64)
+                let angle = element["wad"].as_f64().unwrap_or(0.0);
+                self.angle_to_direction(angle)
             })
             .collect()
     }
@@ -108,8 +108,9 @@ impl WindFinder {
         fetched_list
             .iter()
             .map(|element| {
-                let angle = element["wd"].as_i64().unwrap_or(0);
-                self.angle_to_direction(angle as f64)
+                let angle = element["wd"].as_f64().unwrap_or(0.0);
+                println!("{}", angle);
+                self.angle_to_direction(angle)
             })
             .collect()
     }
