@@ -1,14 +1,14 @@
-use chrono::{DateTime, FixedOffset};
-use chrono_tz::{Europe::Madrid, Tz};
+use chrono::{DateTime, Duration, FixedOffset};
+use chrono_tz::Tz;
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{borrow::Cow, error::Error};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Data {
-    pub datetime: DateTime<Tz>,
+    datetime: DateTime<FixedOffset>,
     wind_direction: String,
     wind_status: String,
     wind_speed: f64,
@@ -18,9 +18,19 @@ pub struct Data {
     spot_name: String,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WindData {
-    pub data: Vec<Data>,
+    data: Vec<Data>,
+}
+
+impl WindData {
+    pub fn for_date(&self, dt: DateTime<Tz>) -> Option<&Data> {
+        self.data
+            .iter()
+            .find(|p| p.datetime > dt && p.datetime <= dt + Duration::hours(2))
+            .take()
+            .or_else(|| self.data.first())
+    }
 }
 
 pub struct WindFinder {
@@ -118,10 +128,9 @@ impl WindFinder {
             .collect()
     }
 
-    fn date_datestr_to_datetime(&self, date_string: &str) -> DateTime<Tz> {
+    fn date_datestr_to_datetime(&self, date_string: &str) -> DateTime<FixedOffset> {
         DateTime::parse_from_rfc3339(date_string)
             .expect("Failed to parse RFC 3339 string")
-            .with_timezone(&Madrid)
     }
 
     fn parse_spot_name(&self, document: &Html) -> String {
@@ -169,7 +178,7 @@ impl WindFinder {
             }
         }
 
-        let datetimes: Vec<DateTime<Tz>> = fetched_list
+        let datetimes: Vec<DateTime<FixedOffset>> = fetched_list
             .iter()
             .map(|element| {
                 let date_str = element["dtl"].as_str().unwrap();
