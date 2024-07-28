@@ -15,6 +15,7 @@ pub struct Data {
     wave_direction: Option<String>,
     wave_period: Option<i32>,
     wave_height: Option<f64>,
+    air_temperature: i32,
     spot_name: String,
 }
 
@@ -98,8 +99,28 @@ impl WindFinder {
             .collect()
     }
 
+    fn parse_air_temperature(&self, document: &Html) -> Vec<i32> {
+        let selector = Selector::parse("div.data-temp.data--major.weathertable__cell span.units-at").unwrap();
+
+        document
+            .select(&selector)
+            .map(|element| {
+                let text = element.text().collect::<String>();
+                let freq = text
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("0")
+                    .parse::<i32>()
+                    .unwrap_or(0);
+
+                freq
+            })
+            .collect()
+    }
+
     fn parse_wave_periods(&self, document: &Html) -> Vec<i32> {
         let selector = Selector::parse("div.data-wavefreq.data--minor.weathertable__cell").unwrap();
+
         document
             .select(&selector)
             .map(|element| {
@@ -129,8 +150,7 @@ impl WindFinder {
     }
 
     fn date_datestr_to_datetime(&self, date_string: &str) -> DateTime<FixedOffset> {
-        DateTime::parse_from_rfc3339(date_string)
-            .expect("Failed to parse RFC 3339 string")
+        DateTime::parse_from_rfc3339(date_string).expect("Failed to parse RFC 3339 string")
     }
 
     fn parse_spot_name(&self, document: &Html) -> String {
@@ -194,6 +214,7 @@ impl WindFinder {
         let wave_periods: Vec<i32> = self.parse_wave_periods(document);
         let total_records = datetimes.len();
         let spot_name = self.parse_spot_name(document);
+        let air_temperatures = self.parse_air_temperature(document);
 
         let data: Vec<Data> = (0..total_records)
             .map(|i| Data {
@@ -205,6 +226,7 @@ impl WindFinder {
                 wave_height: wave_heights.get(i).copied(),
                 wind_speed: wind_speeds[i],
                 spot_name: spot_name.clone(),
+                air_temperature: air_temperatures[i],
             })
             .collect();
 
